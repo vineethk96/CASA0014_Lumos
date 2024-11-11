@@ -23,13 +23,14 @@
 
 // My Lib
 #include "./arduino_secrets.h"
+#include "LuminaMsg.hpp"
 
 // Pins
 #define NEOPIXEL_RING 0
 #define ENCODER_A 4
 #define ENCODER_B 5
-#define OLED_SDA 11
-#define OLED_SCL 12
+#define I2C_SDA 11
+#define I2C_SCL 12
 
 // Default Values
 #define PIXEL_RING 12
@@ -40,10 +41,22 @@
 #define OLED_RESET -1
 
 #define OLED_I2C_ADDR 0x3C
+// Create I2C Addrs for Magnetometers
 
 /* TODO: REMOVE GLOBALS */
 
+// Global Variables
+const char *ssid = SECRET_SSID;
+const char *pass = SECRET_PASS;
+const char *mqtt_username = SECRET_MQTTUSER;
+const char *mqtt_password = SECRET_MQTTPASS;
+char broker[] = "mqtt.cetools.org";
+char topic_base[] = "student/CASA0014/light/";
+const int port = 1884;
+wl_status_t status = WL_IDLE_STATUS; // the Wifi radio's status
+
 // Global Objects
+WiFiServer server(80);
 WiFiClient wifiClient;
 MqttClient mqttClient(wifiClient);
 
@@ -53,17 +66,18 @@ Encoder encoder(ENCODER_A, ENCODER_B);
 
 Adafruit_SSD1306 display(OLED_WIDTH, OLED_HEIGHT, &Wire, OLED_RESET);
 
-// Global Variables
-const char *ssid = SECRET_SSID;
-const char *pass = SECRET_PASS;
-const char *broker = "mqtt.cetools.org";
-const int port = 1884;
-const char *topic = "student/CASA0014/light/";
+LuminaMsg mqtt_msg(topic_base);
 
 // Function Declarations
+void startWiFi(void);
+
+void connectMQTT(void);
 
 void setup()
 {
+  /**
+   * HARDWARE SETUP
+   */
   // Begin the Serial Comms for Debugging
   Serial.begin(9600);
   // Wait for Serial to boot up...
@@ -87,33 +101,29 @@ void setup()
   display.clearDisplay();
 
   /**
-   * MQTT Connection Code
+   * MQTT SETUP
    */
-  // // Begin the Wifi Comms for the MQTT Service
-  // Serial.print("Connecting to SSID: ");
-  // Serial.println(ssid);
-  // while (WiFi.begin(ssid, pass) != WL_CONNECTED)
-  // {
-  //   Serial.print(".");
-  // }
-  // Serial.println("Successfully Connected to WiFi!");
-
-  // // Begin the MQTT Connection
-  // Serial.print("Connecting to MQTT Broker: ");
-  // Serial.println(broker);
-  // if (!mqttClient.connect(broker, port))
-  // {
-  //   Serial.print("MQTT connection failed. Error Code: ");
-  //   Serial.println(mqttClient.connectError());
-  //   while (1)
-  //     ; // Block Loop
-  // }
-
-  // Serial.println("Connected to MQTT Broker");
+  // Begin the Wifi Comms for the MQTT Service
+  Serial.print("Connecting to SSID: ");
+  Serial.println(ssid);
+  WiFi.setHostname("Lumina_Vineeth");
+  mqttClient.setUsernamePassword(mqtt_username, mqtt_password);
 }
 
 void loop()
 {
+
+  // Start the WiFi Connection
+  if (!wifiClient.connected())
+  {
+    startWiFi();
+  }
+
+  // Connect the MQTT Client
+  if (!mqttClient.connected())
+  {
+    connectMQTT();
+  }
 
   // TEST
   static int oldVal = 0;
@@ -131,6 +141,24 @@ void loop()
     display.print(encoderVal);
     // display.drawChar((OLED_WIDTH / 2), (OLED_HEIGHT / 2), (unsigned char)encoderVal, SSD1306_WHITE, SSD1306_BLACK, 2);
     display.display();
+
+    long red = random(0, 255);
+    long green = random(0, 255);
+    long blue = random(0, 255);
+
+    mqtt_msg.changeNode(20, red, green, blue, 0);
+    char *topic = mqtt_msg.getTopic();
+    char *json = mqtt_msg.getJSON();
+
+    Serial.print("topic: ");
+    Serial.println(topic);
+    Serial.print("json: ");
+    Serial.println(json);
+
+    // mqttClient.beginMessage(topic);
+    // mqttClient.print(json);
+    // mqttClient.endMessage();
+
     if (encoderVal <= 8)
     {
       {
@@ -167,4 +195,110 @@ void loop()
   //   Serial.println(" led turns off.");
   //   delay(100);
   // }
+}
+
+void startWiFi(void)
+{
+  // check for the WiFi module:
+  if (WiFi.status() == WL_NO_MODULE)
+  {
+    Serial.println("Communication with WiFi module failed!");
+    // don't continue
+    while (true)
+      ;
+  }
+  const char *fv = WiFi.firmwareVersion();
+  if (fv < WIFI_FIRMWARE_LATEST_VERSION)
+  {
+    Serial.println("Please upgrade the firmware");
+  }
+
+  // Function for connecting to a WiFi network
+  // is looking for UCL_IoT and a back up network (usually a home one!)
+  int n = WiFi.scanNetworks();
+  Serial.println("Scan done");
+  if (n == 0)
+  {
+    Serial.println("no networks found");
+  }
+  else
+  {
+    Serial.print(n);
+    Serial.println(" networks found");
+    // loop through all the networks and if you find UCL_IoT or the backup - ssid1
+    // then connect to wifi
+    Serial.print("Trying to connect to: ");
+    Serial.println(ssid);
+    for (int i = 0; i < n; ++i)
+    {
+      String availablessid = WiFi.SSID(i);
+      // Primary network
+      if (availablessid.equals(ssid))
+      {
+        Serial.print("Connecting to ");
+        Serial.println(ssid);
+        WiFi.begin(ssid, pass);
+        while (WiFi.status() != WL_CONNECTED)
+        {
+          delay(600);
+          Serial.print(".");
+        }
+        if (WiFi.status() == WL_CONNECTED)
+        {
+          Serial.println("Connected to " + String(ssid));
+          break; // Exit the loop if connected
+        }
+        else
+        {
+          Serial.println("Failed to connect to " + String(ssid));
+        }
+      }
+      else
+      {
+        Serial.print(availablessid);
+        Serial.println(" - this network is not in my list");
+      }
+    }
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void connectMQTT(void)
+{
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    startWiFi();
+  }
+  else
+  {
+    Serial.println(WiFi.localIP());
+  }
+
+  // Loop until we're reconnected
+  while (!mqttClient.connected())
+  { // while not (!) connected....
+    Serial.print("Attempting MQTT connection...");
+    // Create a random client ID
+    String clientId = "LuminaSelector";
+    clientId += String(random(0xffff), HEX);
+
+    // Attempt to connect
+    if (mqttClient.connect(broker, port))
+    {
+      Serial.println("connected");
+      // ... and subscribe to messages on broker
+    }
+    else
+    {
+      Serial.print("failed, rc=");
+      Serial.print(mqttClient.connectError());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
 }

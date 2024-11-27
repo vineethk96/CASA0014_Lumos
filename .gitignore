@@ -5,3 +5,6 @@
 .vscode/ipch
 
 arduino_secrets.h
+*.zip
+*.gcode
+*.3mf

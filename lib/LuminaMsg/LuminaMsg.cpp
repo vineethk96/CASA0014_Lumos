@@ -10,147 +10,106 @@
  */
 
 #include "LuminaMsg.hpp"
+#include <algorithm>
 
-#define PIXELID "pixelid"
-#define RED "R"
-#define BLUE "B"
-#define GREEN "G"
-#define WHITE "W"
-#define ALLLED "allLEDs"
-#define METHOD "method"
-#define BRIGHTNESS "brightness"
-#define CLEAR "clear"
-#define ALLRANDOM "allrandom"
-#define ONERANDOM "onerandom"
-#define PULSEWHITE "pulsewhite"
-#define PIXEL_ENDPOINT "/pixel/"
-#define NODE_ENDPOINT "/all/"
-#define BRIGHTNESS_ENDPOINT "/brightness/"
+#define allLED "allLEDs"
+#define pixelID "pixelid"
+#define method "method"
+#define red "R"
+#define green "G"
+#define blue "B"
+#define white "W"
+#define brightness "brightness"
+#define clear "clear"
+#define oneRandom "onerandom"
+#define allRandom "allrandom"
+#define pulseWhite "pulsewhite"
 
-#define CHANGE_PIXEL 0
-#define CHANGE_NODE 1
-#define CHANGE_BRIGHTNESS 2
-#define CHANGE_METHOD 3
-
-LuminaMsg::LuminaMsg(char *topic)
+LuminaMsg::LuminaMsg(char *topicBase) : topicRoot(topicBase)
 {
-    topicBase = topic;
-    Serial.print("topic in Lumina class: ");
-    Serial.println(topicBase);
 }
 
-void LuminaMsg::changePixel(uint8_t node, uint8_t pixel, uint8_t R, uint8_t G, uint8_t B, uint8_t W)
+void LuminaMsg::setPixelColor(uint8_t pixel, uint8_t R, uint8_t G, uint8_t B, uint8_t W)
 {
-    if (pixel > PIXEL_RING_SIZE)
-    {
-        return;
-    }
+    // Set the key value pairs for a single pixel
+    this->pixelMsg[pixelID].set(pixel);
+    this->pixelMsg[red].set(R);
+    this->pixelMsg[green].set(G);
+    this->pixelMsg[blue].set(B);
+    this->pixelMsg[white].set(W);
 
-    currNode = node;
+    this->lastSetMsg = pixel_m;
 
-    pixelBase_msg[PIXELID] = pixel;
-    pixelBase_msg[RED] = R;
-    pixelBase_msg[GREEN] = G;
-    pixelBase_msg[BLUE] = B;
-    pixelBase_msg[WHITE] = W;
-
-    // setting CHANGE_PIXEL bit using bitmask
-    lastChangeBitmap = 0;
-    lastChangeBitmap = lastChangeBitmap | 1 << CHANGE_PIXEL;
+    // TODO: Add check for json doc overflow
 }
 
-void LuminaMsg::changeNode(uint8_t node, uint8_t R, uint8_t G, uint8_t B, uint8_t W)
+void LuminaMsg::setNodeColor(uint8_t R, uint8_t G, uint8_t B, uint8_t W)
 {
+    // Clear the previous array
+    this->nodeMsg.to<JsonArray>();
+
+    // Iterate through the ring, and set the individual pixels
     for (uint8_t i = 0; i < PIXEL_RING_SIZE; i++)
     {
-        // Add the Pixels to the Pixel Ring Array
-        changePixel(node, i, R, G, B, W);
-        pixelRing_msg[ALLLED].add(pixelBase_msg);
+        this->setPixelColor(i, R, G, B, W);
+        this->nodeMsg[allLED].add(this->pixelMsg); // Add the pixelMsg json to the array
     }
 
-    // setting CHANGE_NODE bit using bitmask
-    lastChangeBitmap = 0;
-    lastChangeBitmap = lastChangeBitmap | 1 << CHANGE_NODE;
+    this->lastSetMsg = node_m;
 }
 
-void LuminaMsg::changeBrightness(uint8_t node, uint8_t brightness)
+void LuminaMsg::setBrightness(uint8_t luminosity)
 {
-    currNode = node;
-    brightness_msg[BRIGHTNESS] = brightness;
+    this->brightnessMsg[brightness].set(luminosity);
 
-    // setting CHANGE_BRIGHTNESS bit using bitmask
-    lastChangeBitmap = 0;
-    lastChangeBitmap = lastChangeBitmap | 1 << CHANGE_BRIGHTNESS;
+    this->lastSetMsg = brightness_m;
 }
 
-void LuminaMsg::changeMethod(uint8_t node, method_t method)
+void LuminaMsg::setMethod(uint8_t node, method_t cmd)
 {
-    currNode = node;
-    switch (method)
+    switch (cmd)
     {
     case CLEAR_RING:
-        methods_msg[METHOD] = CLEAR;
+        this->methodsMsg[method].set(clear);
         break;
     case ALL_RANDOM:
-        methods_msg[METHOD] = ALLRANDOM;
+        this->methodsMsg[method].set(allRandom);
         break;
     case ONE_RANDOM:
-        methods_msg[METHOD] = ONERANDOM;
+        this->methodsMsg[method].set(oneRandom);
         break;
     case PULSE_WHITE:
-        methods_msg[METHOD] = PULSEWHITE;
+        this->methodsMsg[method].set(pulseWhite);
         break;
     }
 
-    // setting CHANGE_METHOD bit using bitmask
-    lastChangeBitmap = 0;
-    lastChangeBitmap = lastChangeBitmap | 1 << CHANGE_METHOD;
+    this->lastSetMsg = method_m;
 }
 
-char *LuminaMsg::getTopic(void)
+void LuminaMsg::sendNode(uint8_t node, char *topic, char *json)
 {
-    char *tempTopic = topicBase + (char)currNode;
+    topic = this->topicRoot;
+    char *nodeNum;
+    itoa(node, nodeNum, 10); // Double check this to see if nodeNum has a newline char
+    strcat(topic, nodeNum);
 
-    // Check what was the last command sent
-    if (lastChangeBitmap & (1 << CHANGE_PIXEL))
+    switch (this->lastSetMsg)
     {
-        strcat(tempTopic, PIXEL_ENDPOINT);
+    case pixel_m:
+        strcat(topic, "/pixel/");
+        serializeJson(this->pixelMsg, json, PIXELMSG_SIZE);
+        break;
+    case node_m:
+        strcat(topic, "/all/");
+        serializeJson(this->nodeMsg, json, NODEMSG_SIZE);
+        break;
+    case brightness_m:
+        strcat(topic, "/brightness/");
+        serializeJson(this->brightnessMsg, json, BRIGHTNESSMSG_SIZE);
+        break;
+    case method_m:
+        strcat(topic, "/all/");
+        serializeJson(this->methodsMsg, json, METHODSMSG_SIZE);
+        break;
     }
-    else if ((lastChangeBitmap & (1 << CHANGE_NODE)) || (lastChangeBitmap & (1 << CHANGE_METHOD)))
-    {
-        strcat(tempTopic, NODE_ENDPOINT);
-    }
-    else if (lastChangeBitmap & (1 << CHANGE_BRIGHTNESS))
-    {
-        strcat(tempTopic, BRIGHTNESS_ENDPOINT);
-    }
-
-    Serial.print("topic in Get Topic: ");
-    Serial.println(tempTopic);
-
-    return tempTopic;
-}
-
-char *LuminaMsg::getJSON(void)
-{
-    char tempDoc[100];
-    // Check what was the last command sent
-    if (lastChangeBitmap & (1 << CHANGE_PIXEL))
-    {
-        serializeJson(pixelBase_msg, tempDoc);
-    }
-    else if (lastChangeBitmap & (1 << CHANGE_NODE))
-    {
-        serializeJson(pixelRing_msg, tempDoc);
-    }
-    else if (lastChangeBitmap & (1 << CHANGE_BRIGHTNESS))
-    {
-        serializeJson(brightness_msg, tempDoc);
-    }
-    else if (lastChangeBitmap & (1 << CHANGE_METHOD))
-    {
-        serializeJson(methods_msg, tempDoc);
-    }
-
-    return tempDoc;
 }

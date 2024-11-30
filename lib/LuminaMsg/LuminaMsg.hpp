@@ -9,6 +9,7 @@
  *
  */
 
+#include <Arduino.h>
 #include <ArduinoJson.h>
 #include <WiFiNINA.h>
 #include <PubSubClient.h>

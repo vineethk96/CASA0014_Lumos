@@ -27,6 +27,7 @@
 
 LuminaMsg::LuminaMsg(char *topicBase) : topicRoot(topicBase)
 {
+    Serial.println("hello?");
 }
 
 void LuminaMsg::setPixelColor(uint8_t pixel, uint8_t R, uint8_t G, uint8_t B, uint8_t W)

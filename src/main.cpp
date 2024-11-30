@@ -20,8 +20,9 @@
 
 // My Lib
 #include "./arduino_secrets.h"
-#include "LuminaMsg.hpp"
+// #include "LuminaMsg.hpp"
 #include "EncoderKnob.hpp"
+#include "MagTrio.hpp"
 
 // Pins
 #define ENCODER_A 4
@@ -40,7 +41,7 @@ const char *mqtt_password = SECRET_MQTTPASS;
 const char *mqtt_server = "mqtt.cetools.org";
 const int port = 1884;
 wl_status_t status = WL_IDLE_STATUS; // the Wifi radio's status
-char topic_base[] = "student/CASA0014/light/";
+char *topic;
 
 // Global Objects
 WiFiServer server(80);
@@ -49,12 +50,15 @@ WiFiClient wifiClient;
 WiFiClient mkrClient;
 PubSubClient client(mkrClient);
 
-LuminaMsg mqtt_msg(topic_base);
+// LuminaMsg mqtt_msg(topic_base);
 EncoderKnob ledDial(ENCODER_A, ENCODER_B, 0, &Wire);
+MagTrio mags(Wire);
 
 // Function Declarations
 void startWifi(void);
 void reconnectMQTT(void);
+void sendMQTT(char *topic, char *msg);
+void lightNode(uint8_t nodeNum, uint8_t red, uint8_t green, uint8_t blue, uint8_t white);
 
 void setup()
 {
@@ -73,6 +77,8 @@ void setup()
       ;
   }
 
+  mags.begin();
+
   // MQTT SETUP
   WiFi.setHostname("Lumina_Vineeth");
   startWifi();
@@ -82,10 +88,14 @@ void setup()
 
 void loop()
 {
+
+  static unsigned long timestamp = millis();
+
   // we need to make sure the arduino is still connected to the MQTT broker
   // otherwise we will not receive any messages
   if (!client.connected())
   {
+    Serial.println("Attempting to reconnect to MQTT...");
     reconnectMQTT();
   }
 
@@ -93,25 +103,26 @@ void loop()
   // otherwise it will be impossible to connect to MQTT!
   if (WiFi.status() != WL_CONNECTED)
   {
+    Serial.println("Attempting to reconnect to WiFi");
     startWifi();
   }
 
-  char *newTopic;
-  char *json;
-  mqtt_msg.setNodeColor(255, 0, 0, 100);
-  mqtt_msg.sendNode(20, newTopic, json);
-  Serial.print("Topic: ");
-  Serial.println(newTopic);
-  Serial.print("JSON msg: ");
-  Serial.println(json);
-  delay(100);
+  // Update the Magnetometer readings
+  mags.update();
+
+  // Update at the fastest speed possible
+  ledDial.update();
 
   /**
    * Actions go here!
    *
    */
-  // Update at the fastest speed possible
-  ledDial.update();
+  // Every 500 ms, send a new message
+  if (millis() - timestamp > 500)
+  {
+
+    lightNode(ledDial.getReading(), mags.getRed(), mags.getGreen(), mags.getBlue(), 0);
+  }
 
   // check for messages from the broker and ensuring that any outgoing messages are sent.
   client.loop();
@@ -221,5 +232,39 @@ void reconnectMQTT(void)
       // Wait 5 seconds before retrying
       delay(5000);
     }
+  }
+}
+
+void sendMQTT(char *topic, char *msg)
+{
+
+  Serial.println("SENDING MSG...");
+  Serial.print("Topic: ");
+  Serial.println(topic);
+  Serial.print("Message: ");
+  Serial.println(msg);
+
+  if (client.publish(topic, msg))
+  {
+    Serial.println("Message published");
+  }
+  else
+  {
+    Serial.println("Failed to publish message");
+  }
+}
+
+void lightNode(uint8_t nodeNum, uint8_t red, uint8_t green, uint8_t blue, uint8_t white)
+{
+  // Setup the Topic
+  char mqttTopic[35];
+  sprintf(mqttTopic, "student/CASA0014/light/%d/pixel/", nodeNum);
+
+  // Send messages to each pixel
+  for (uint8_t i = 0; i < 12; i++)
+  {
+    char mqttMsg[60];
+    sprintf(mqttMsg, "{\"pixelid\": %d, \"R\": %d, \"G\": %d, \"B\": %d, \"W\": %d}", i, red, green, blue, white);
+    sendMQTT(mqttTopic, mqttMsg);
   }
 }

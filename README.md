@@ -1,6 +1,8 @@
 # CASA0014_Lumos
 
-<img src="/docs/lightWall.jpg" alt="drawing" width="500" class="center"/>
+<p align="center">
+    <img src="/docs/lightWall.jpg" alt="drawing" width="500"/>
+</p>
 
 ### Description
 

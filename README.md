@@ -1,7 +1,6 @@
 # CASA0014_Lumos
 
-![Light Wall]()
-<img src="/docs/lightWall.jpg" alt="drawing" width="200"/>
+<img src="/docs/lightWall.jpg" alt="drawing" width="500"/>
 
 ### Description
 

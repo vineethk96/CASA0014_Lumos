@@ -13,22 +13,35 @@
 #include <TCA9548A.h>
 #include <Tlv493d.h>
 
+#define ROLLING_AVG_SIZE 5
+
 class MagTrio
 {
 private:
-    enum
+    typedef enum magType
     {
         MAG_R,
         MAG_G,
         MAG_B
-    } mag_t;
+    } mag_t; // Enum adds clarity to which mag is being read
 
     TCA9548A i2cMux; // I2C Mux Object
     Tlv493d mag;     // Magnetometer Object (Single object can be used across multiple mags)
 
-    uint8_t red = 0;
-    uint8_t green = 0;
-    uint8_t blue = 0;
+    // Tracks the net sum
+    float red = 0;
+    float green = 0;
+    float blue = 0;
+
+    // Rolling Avg Arrays
+    float redArr[ROLLING_AVG_SIZE] = {0};
+    float greenArr[ROLLING_AVG_SIZE] = {0};
+    float blueArr[ROLLING_AVG_SIZE] = {0};
+
+    // Tracks the location in the array for the new value.
+    uint8_t newEntry = 0;
+
+    void updateArray(mag_t magSel, float reading);
 
 public:
     MagTrio(TwoWire i2cBus = Wire);

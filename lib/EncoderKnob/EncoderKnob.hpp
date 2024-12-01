@@ -36,16 +36,15 @@ public:
      * @param encoder_pinC (uint8_t): Pin for pin C on the PEC11 Encoder
      * @param twi (TwoWire*): I2C Comms object for the display
      */
-    EncoderKnob(uint8_t encoder_pinA, uint8_t encoder_pinB, uint8_t encoder_pinC, TwoWire *twi);
+    EncoderKnob(uint8_t encoder_pinA, uint8_t encoder_pinB, uint8_t encoder_pinC, TwoWire twi);
 
     /**
-     * @brief Completes the initialization tasks for the display
+     * @brief Completes the initialization tasks for the display, i2c address is defaulted to 0x3c
      *
-     * @param display_i2c_addr (uint8_t): I2C Address for the Display, defaults to 0x3C
      * @return true: Upon successful initialization of the display
      * @return false: Upon failure to initialize
      */
-    bool begin(uint8_t display_i2c_addr);
+    bool begin(void);
 
     /**
      * @brief Get the current reading from the encoder

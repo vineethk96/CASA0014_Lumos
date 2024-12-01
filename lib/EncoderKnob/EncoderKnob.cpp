@@ -11,7 +11,7 @@
 
 #include "EncoderKnob.hpp"
 
-EncoderKnob::EncoderKnob(uint8_t encoder_pinA, uint8_t encoder_pinB, uint8_t encoder_pinC, TwoWire *twi)
+EncoderKnob::EncoderKnob(uint8_t encoder_pinA, uint8_t encoder_pinB, uint8_t encoder_pinC, TwoWire twi)
 {
 
     // Update the pointers with the constructed objects
@@ -21,10 +21,10 @@ EncoderKnob::EncoderKnob(uint8_t encoder_pinA, uint8_t encoder_pinB, uint8_t enc
     // TODO: Add Functionality for encoder pin C to allow for clicking
 }
 
-bool EncoderKnob::begin(uint8_t display_i2c_addr = DEFAULT_OLED_I2C_ADDRESS)
+bool EncoderKnob::begin(void)
 {
     // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
-    if (!this->display->begin(SSD1306_SWITCHCAPVCC, display_i2c_addr))
+    if (!this->display->begin(SSD1306_SWITCHCAPVCC, DEFAULT_OLED_I2C_ADDRESS))
     {
         Serial.println(F("SSD1306 allocation failed"));
         return false;
@@ -32,6 +32,7 @@ bool EncoderKnob::begin(uint8_t display_i2c_addr = DEFAULT_OLED_I2C_ADDRESS)
 
     // Clear the buffer
     this->display->clearDisplay();
+    this->display->setRotation(2);
     return true;
 }
 
@@ -49,8 +50,9 @@ void EncoderKnob::update(void)
         this->display->clearDisplay();
         this->display->setTextSize(2);
         this->display->setTextColor(SSD1306_WHITE);
-        this->display->setCursor((OLED_WIDTH / 2), (OLED_HEIGHT / 2));
+        this->display->setCursor((10), (0));
         this->display->println("LED Node: ");
+        this->display->setCursor((OLED_WIDTH / 2), (OLED_HEIGHT / 2));
         this->display->print(currReading);
         this->display->display();
     }

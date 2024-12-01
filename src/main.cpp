@@ -25,14 +25,14 @@
 #include "MagTrio.hpp"
 
 // Pins
-#define ENCODER_A 4
-#define ENCODER_B 5
+#define ENCODER_A 7
+#define ENCODER_B 6
 
-#define OLED_I2C_ADDR 0x3C
-#define MAGMUX_I2C_ADDR 0x70
+#define TEST_NO_WIFI // For at home testing with no MQTT
 
 /* TODO: REMOVE GLOBALS */
 
+#ifndef TEST_NO_WIFI
 // Global Variables
 const char *ssid = SECRET_SSID;
 const char *pass = SECRET_PASS;
@@ -41,17 +41,21 @@ const char *mqtt_password = SECRET_MQTTPASS;
 const char *mqtt_server = "mqtt.cetools.org";
 const int port = 1884;
 wl_status_t status = WL_IDLE_STATUS; // the Wifi radio's status
-char *topic;
 
 // Global Objects
 WiFiServer server(80);
 WiFiClient wifiClient;
+#endif
 
+char *topic;
+
+#ifndef TEST_NO_WIFI
 WiFiClient mkrClient;
 PubSubClient client(mkrClient);
+#endif
 
 // LuminaMsg mqtt_msg(topic_base);
-EncoderKnob ledDial(ENCODER_A, ENCODER_B, 0, &Wire);
+EncoderKnob ledDial(ENCODER_A, ENCODER_B, 0, Wire);
 MagTrio mags(Wire);
 
 // Function Declarations
@@ -70,7 +74,7 @@ void setup()
     ;
 
   // Begin LED Dial Unit
-  if (!ledDial.begin(OLED_I2C_ADDR))
+  if (!ledDial.begin())
   {
     Serial.println("Led Dial Failed to Initialize.");
     while (1)
@@ -79,11 +83,13 @@ void setup()
 
   mags.begin();
 
+#ifndef TEST_NO_WIFI
   // MQTT SETUP
   WiFi.setHostname("Lumina_Vineeth");
   startWifi();
   client.setServer(mqtt_server, port);
   Serial.println("setup complete");
+#endif
 }
 
 void loop()
@@ -91,6 +97,7 @@ void loop()
 
   static unsigned long timestamp = millis();
 
+#ifndef TEST_NO_WIFI
   // we need to make sure the arduino is still connected to the MQTT broker
   // otherwise we will not receive any messages
   if (!client.connected())
@@ -106,6 +113,7 @@ void loop()
     Serial.println("Attempting to reconnect to WiFi");
     startWifi();
   }
+#endif
 
   // Update the Magnetometer readings
   mags.update();
@@ -117,20 +125,23 @@ void loop()
    * Actions go here!
    *
    */
+
   // Every 500 ms, send a new message
   if (millis() - timestamp > 500)
   {
-
-    lightNode(ledDial.getReading(), mags.getRed(), mags.getGreen(), mags.getBlue(), 0);
+    lightNode(ledDial.getReading(), mags.getRed(), mags.getGreen(), mags.getBlue(), 100);
+    timestamp = millis(); // Update Timestamp
   }
 
+#ifndef TEST_NO_WIFI
   // check for messages from the broker and ensuring that any outgoing messages are sent.
   client.loop();
+#endif
 }
 
 void startWifi()
 {
-
+#ifndef TEST_NO_WIFI
   // check for the WiFi module:
   if (WiFi.status() == WL_NO_MODULE)
   {
@@ -197,10 +208,13 @@ void startWifi()
   Serial.println("WiFi connected");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
+
+#endif
 }
 
 void reconnectMQTT(void)
 {
+#ifndef TEST_NO_WIFI
   if (WiFi.status() != WL_CONNECTED)
   {
     startWifi();
@@ -233,6 +247,7 @@ void reconnectMQTT(void)
       delay(5000);
     }
   }
+#endif
 }
 
 void sendMQTT(char *topic, char *msg)
@@ -244,6 +259,7 @@ void sendMQTT(char *topic, char *msg)
   Serial.print("Message: ");
   Serial.println(msg);
 
+#ifndef TEST_NO_WIFI
   if (client.publish(topic, msg))
   {
     Serial.println("Message published");
@@ -252,6 +268,7 @@ void sendMQTT(char *topic, char *msg)
   {
     Serial.println("Failed to publish message");
   }
+#endif
 }
 
 void lightNode(uint8_t nodeNum, uint8_t red, uint8_t green, uint8_t blue, uint8_t white)

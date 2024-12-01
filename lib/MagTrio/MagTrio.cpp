@@ -11,15 +11,51 @@
 
 #include "MagTrio.hpp"
 
-#define RED_MIN 0.1
-#define RED_MAX 60
-#define GREEN_MIN 0.1
-#define GREEN_MAX 60
-#define BLUE_MIN 0.1
-#define BLUE_MAX 60
+#define RED_MIN 0
+#define RED_MAX 0.37
+#define GREEN_MIN 0
+#define GREEN_MAX 0.37
+#define BLUE_MIN 0
+#define BLUE_MAX 0.37
 
 #define MIN_SAT 0
 #define MAX_SAT 255
+
+void MagTrio::updateArray(mag_t magSel, float reading)
+{
+    float *arr = nullptr;     // Pointer to simplify access to the array
+    float *currSum = nullptr; // Pointer to the current sum value
+
+    // Reduces repeated code by linking the appropriate mag using pointers
+    switch (magSel)
+    {
+    case MAG_R:
+        arr = &redArr[0];
+        currSum = &red;
+        break;
+    case MAG_G:
+        arr = &greenArr[0];
+        currSum = &green;
+        break;
+    case MAG_B:
+        arr = &blueArr[0];
+        currSum = &blue;
+        break;
+    }
+
+    // Check if this is the first run
+    if (arr[newEntry] != 0)
+    {
+        // We need to remove the old value from the sum
+        *currSum -= arr[newEntry];
+    }
+
+    // Add new reading to the total
+    *currSum += reading;
+
+    // Update the tracking array
+    arr[newEntry] = reading;
+}
 
 MagTrio::MagTrio(TwoWire i2cBus)
 {
@@ -53,13 +89,22 @@ void MagTrio::update(void)
     switch (currMag)
     {
     case MAG_R:
-        red = map(reading, RED_MIN, RED_MAX, MIN_SAT, MAX_SAT);
+        // Serial.print("Raw: ");
+        // Serial.println(reading);
+        updateArray(MAG_R, reading);
+        // Serial.print("Red Avg: ");
+        // Serial.println(red / ROLLING_AVG_SIZE);
         break;
     case MAG_G:
-        green = map(reading, GREEN_MIN, GREEN_MAX, MIN_SAT, MAX_SAT);
+        updateArray(MAG_G, reading);
+        // Serial.print("Green Avg: ");
+        // Serial.println(green / ROLLING_AVG_SIZE);
         break;
     case MAG_B:
-        blue = map(reading, BLUE_MIN, BLUE_MAX, MIN_SAT, MAX_SAT);
+        updateArray(MAG_B, reading);
+        // Serial.print("Blue Avg: ");
+        // Serial.println(blue / ROLLING_AVG_SIZE);
+        newEntry = (newEntry < ROLLING_AVG_SIZE) ? newEntry + 1 : 0;
         break;
     }
 
@@ -71,15 +116,18 @@ void MagTrio::update(void)
 
 uint8_t MagTrio::getRed(void)
 {
-    return red;
+    float avg = red / ROLLING_AVG_SIZE;
+    return (avg > RED_MAX) ? MAX_SAT : map(avg, RED_MIN, RED_MAX, MIN_SAT, MAX_SAT);
 }
 
 uint8_t MagTrio::getGreen(void)
 {
-    return green;
+    float avg = green / ROLLING_AVG_SIZE;
+    return (avg > GREEN_MAX) ? MAX_SAT : map(avg, GREEN_MIN, GREEN_MAX, MIN_SAT, MAX_SAT);
 }
 
 uint8_t MagTrio::getBlue(void)
 {
-    return blue;
+    float avg = blue / ROLLING_AVG_SIZE;
+    return (avg > BLUE_MAX) ? MAX_SAT : map(avg, BLUE_MIN, BLUE_MAX, MIN_SAT, MAX_SAT);
 }

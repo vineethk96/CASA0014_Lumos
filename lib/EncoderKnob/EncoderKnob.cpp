@@ -49,11 +49,7 @@ void EncoderKnob::update(void)
 {
     uint32_t currReading = this->getReading();
 
-    if (currReading == NEGATIVE_READING)
-    {
-        currReading = TOTAL_NODES - 1;
-    }
-    else if (currReading > TOTAL_NODES)
+    if (currReading > TOTAL_NODES)
     {
         currReading = 0;
     }

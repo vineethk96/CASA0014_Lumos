@@ -84,7 +84,7 @@ void MagTrio::update(void)
     i2cMux.openChannel(currMag);
     mag.updateData();
     delay(100);
-    reading = mag.getAmount();
+    reading = abs(mag.getAmount());
 
     switch (currMag)
     {
@@ -117,17 +117,23 @@ void MagTrio::update(void)
 uint8_t MagTrio::getRed(void)
 {
     float avg = red / ROLLING_AVG_SIZE;
+    Serial.print("Red Avg: ");
+    Serial.println(avg);
     return (avg > RED_MAX) ? MAX_SAT : map(avg, RED_MIN, RED_MAX, MIN_SAT, MAX_SAT);
 }
 
 uint8_t MagTrio::getGreen(void)
 {
     float avg = green / ROLLING_AVG_SIZE;
+    Serial.print("Green Avg: ");
+    Serial.println(avg);
     return (avg > GREEN_MAX) ? MAX_SAT : map(avg, GREEN_MIN, GREEN_MAX, MIN_SAT, MAX_SAT);
 }
 
 uint8_t MagTrio::getBlue(void)
 {
     float avg = blue / ROLLING_AVG_SIZE;
+    Serial.print("Blue Avg: ");
+    Serial.println(avg);
     return (avg > BLUE_MAX) ? MAX_SAT : map(avg, BLUE_MIN, BLUE_MAX, MIN_SAT, MAX_SAT);
 }

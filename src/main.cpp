@@ -28,7 +28,7 @@
 #define ENCODER_A 7
 #define ENCODER_B 6
 
-#define TEST_NO_WIFI // For at home testing with no MQTT
+// #define TEST_NO_WIFI // For at home testing with no MQTT
 
 /* TODO: REMOVE GLOBALS */
 

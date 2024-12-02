@@ -11,6 +11,10 @@
 
 #include "EncoderKnob.hpp"
 
+#define TOTAL_NODES 52
+#define ENCODER_DIVIDER 4
+#define NEGATIVE_READING 255
+
 EncoderKnob::EncoderKnob(uint8_t encoder_pinA, uint8_t encoder_pinB, uint8_t encoder_pinC, TwoWire twi)
 {
 
@@ -38,12 +42,21 @@ bool EncoderKnob::begin(void)
 
 uint32_t EncoderKnob::getReading(void)
 {
-    return this->encoder->read() / 4;
+    return this->encoder->read() / ENCODER_DIVIDER;
 }
 
 void EncoderKnob::update(void)
 {
     uint32_t currReading = this->getReading();
+
+    if (currReading == NEGATIVE_READING)
+    {
+        currReading = TOTAL_NODES - 1;
+    }
+    else if (currReading > TOTAL_NODES)
+    {
+        currReading = 0;
+    }
 
     if (prevReading != currReading)
     {

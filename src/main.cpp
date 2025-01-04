@@ -252,6 +252,7 @@ void reconnectMQTT(void)
 
 void sendMQTT(char *topic, char *msg)
 {
+#ifndef TEST_NO_WIFI
 
   Serial.println("SENDING MSG...");
   Serial.print("Topic: ");
@@ -259,7 +260,6 @@ void sendMQTT(char *topic, char *msg)
   Serial.print("Message: ");
   Serial.println(msg);
 
-#ifndef TEST_NO_WIFI
   if (client.publish(topic, msg))
   {
     Serial.println("Message published");

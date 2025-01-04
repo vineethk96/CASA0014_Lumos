@@ -37,6 +37,15 @@ bool EncoderKnob::begin(void)
     // Clear the buffer
     this->display->clearDisplay();
     this->display->setRotation(2);
+
+    this->display->clearDisplay();
+    this->display->setTextSize(2);
+    this->display->setTextColor(SSD1306_WHITE);
+    this->display->setCursor((10), (0));
+    this->display->println("LED Node: ");
+    this->display->setCursor((OLED_WIDTH / 2), (OLED_HEIGHT / 2));
+    this->display->print("0");
+    this->display->display();
     return true;
 }
 
